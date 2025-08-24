@@ -42,7 +42,7 @@ export function Navbar() {
 
           <div className="hidden md:flex items-center space-x-4">
             <Button variant="outline" asChild>
-              <Link href="/login">Login</Link>
+              <Link href="/auth/login">Login</Link>
             </Button>
             <Button asChild>
               <Link href="/donate">Donate Now</Link>
@@ -70,7 +70,7 @@ export function Navbar() {
                 ))}
                 <div className="flex flex-col space-y-2 pt-4 border-t">
                   <Button variant="outline" asChild>
-                    <Link href="/login" onClick={() => setIsOpen(false)}>
+                    <Link href="/auth/login" onClick={() => setIsOpen(false)}>
                       Login
                     </Link>
                   </Button>
