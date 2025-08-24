@@ -26,24 +26,78 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log("[v0] Starting login process...")
+
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-      if (error) throw error
 
-      // Get user profile to determine redirect
-      const { data: profile } = await supabase.from("profiles").select("role").single()
+      if (authError) {
+        console.log("[v0] Auth error:", authError)
+        throw authError
+      }
 
-      if (profile?.role === "admin") {
+      console.log("[v0] Authentication successful, user ID:", authData.user?.id)
+
+      let profile = null
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", authData.user.id)
+          .single()
+
+        if (profileError && profileError.code !== "PGRST116") {
+          // PGRST116 is "not found" error, which we can handle
+          console.log("[v0] Profile fetch error:", profileError)
+          throw profileError
+        }
+
+        profile = profileData
+        console.log("[v0] Profile found:", profile)
+      } catch (profileFetchError) {
+        console.log("[v0] Error fetching profile:", profileFetchError)
+      }
+
+      if (!profile) {
+        console.log("[v0] No profile found, creating one...")
+        const { data: newProfile, error: createError } = await supabase
+          .from("profiles")
+          .insert({
+            id: authData.user.id,
+            email: authData.user.email,
+            full_name: authData.user.user_metadata?.full_name || "",
+            role: "donor", // default role
+          })
+          .select("role")
+          .single()
+
+        if (createError) {
+          console.log("[v0] Error creating profile:", createError)
+          // If we can't create a profile, default to donor dashboard
+          profile = { role: "donor" }
+        } else {
+          profile = newProfile
+          console.log("[v0] Profile created:", profile)
+        }
+      }
+
+      const userRole = profile?.role || "donor"
+      console.log("[v0] Redirecting user with role:", userRole)
+
+      if (userRole === "admin") {
         router.push("/dashboard/admin")
-      } else if (profile?.role === "volunteer") {
+      } else if (userRole === "volunteer") {
         router.push("/dashboard/volunteer")
       } else {
         router.push("/dashboard/donor")
       }
+
+      router.refresh()
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      console.log("[v0] Login error:", error)
+      setError(error instanceof Error ? error.message : "An error occurred during login")
     } finally {
       setIsLoading(false)
     }
